@@ -1,0 +1,22 @@
+# .gitignore for standard (dev) repos
+
+eia-data
+gridwatch-data
+
+# Exclude everything starting with ".", and put back just the
+# redistributable ones.
+
+**/.*
+
+!**/.gitignore
+!**/.gitconfig
+!**/.gitattributes
+!**/.editorconfig
+
+# Omit temp dirs and other working-tree conveniences
+**/*.tmp
+**/*.temp
+**/tmp/
+**/temp/
+
+**/__pycache__
