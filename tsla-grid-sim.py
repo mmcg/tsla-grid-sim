@@ -515,9 +515,12 @@ def eia_csv_by_month(file):
 # that (eg: 10-15 minute intervals where demand briefly triples), but we can cope.
 def simulate_gridwatch_csv():
     '''Run the simulator over the 2018-now data'''
-    if os.exis
-    dates, data, fname = gridwatch_csv_loader(START_AT_YEAR)(f'gridwatch-data/gridwatch-2018-on.csv')
-    simulate(data, SimParams(fname), 12, dates)
+    fname = f'gridwatch-data/gridwatch-2018-on.csv'
+    if os.path.exists(fname):
+        dates, data, fname = gridwatch_csv_loader(START_AT_YEAR)(fname)
+        simulate(data, SimParams(fname), 12, dates)
+    else:
+        print(f"No GridWatch data ({fname})")
 
 # Figure out how much historical gridwatch data is somewhat usable.
 def gridwatch_csv_by_month():

@@ -134,7 +134,7 @@ for now you should know that:
 
 With Tesla's parameters (keep existing nuclear and hydro, overbuild
 renewable generation by 32%), we calculate that we need 8 hours of storage
-(and we see 57% curtailment).  Note that I have no idea whether a 40:60 mix is reasonable.
+(and we see 57% curtailment).
 ```
 Parameters:
     Data: eia-data/Region_US48.csv
