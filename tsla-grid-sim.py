@@ -21,7 +21,7 @@ HOURS_PER_YEAR = 24 * 365
 # The first 6 months of disaggregated EIA reporting has some egregious errors (it looks
 # like some of the BAs took that long to sort out their IT problems - at a minimum: BPAT,
 # GRID, NWMT).  So we can set a start year.
-START_AT_YEAR = 2018
+START_AT_YEAR = 2019
 
 # Discounted capacity factors, from tesla's paper.  "Discounted" means "after curtailment".
 # It's unclear how useful post-curtailment figures are here.
@@ -78,7 +78,7 @@ class SimParams(ParameterBase):
         return {
             # 'cf_filter_duration': 24 * 7 * 16,
             # 'min_historical_cf': 0, # don't eliminate any historical ranges
-            # 'storage_hours': 1000,
+            # 'storage_hours': 10,
             # 'isolate_region': True,
             # 'capacity_planning_lookahead': 0, # No lookahead
             # 'capacity_planning_lookahead': HOURS_PER_YEAR // 4, # 3 months
@@ -87,7 +87,8 @@ class SimParams(ParameterBase):
             # 'calculate_dcf': False,
             # 'wind_dcf': TSLA_WIND_DCF,
             # 'solar_dcf': TSLA_SOLAR_DCF,
-            # 'default_wind_fraction': 0.8,
+            # 'default_wind_fraction': 0.75,
+            # 'optimise_wind_fraction': False
 
             ## Eliminate nuclear and hydro as well:
             # 'keep_generators': [],
@@ -139,7 +140,9 @@ class SimParams(ParameterBase):
             'default_wind_dcf': (TSLA_WIND_DCF, None),
             'default_solar_dcf': (TSLA_SOLAR_DCF, None),
 
-            # We assume we will install 40% wind, 60% solar.
+            # By default we choose a wind fraction which will minimise the maximum drawdown.
+            # If optimise_wind_fraction is False, we will assume 40% wind, 60% solar.
+            'optimise_wind_fraction': (True, None),
             'default_wind_fraction': (TSLA_WIND_PERCENTAGE, None),
 
             # Sets the list of generation types that should be retained.  By default we keep
@@ -220,49 +223,72 @@ def simulate(basedata, params, slots_per_hour, timestamps, quiet=False):
         generated = nonrenewables_contribution + renewables_contribution
         oversupply = generated - data[DEMAND_COL]
         storage_hours_generated = oversupply / renewables_levelised # per hour
-        return (wind_nameplate, solar_nameplate, storage_hours_generated)
+        cum_storage = np.cumsum(storage_hours_generated)
+        return (wind_nameplate, solar_nameplate, storage_hours_generated, cum_storage)
 
     if not quiet:
-        (wind_nameplate, solar_nameplate, storage_hours_generated
-        ) = calc_parameterised(params.default_wind_fraction, params.overbuild)
-        max_drawdown, dd_start, dd_end = get_max_drawdown(np.cumsum(storage_hours_generated))
+        wind_frac = params.default_wind_fraction
+        if params.optimise_wind_fraction:
+            wind_frac = optimise_wind_frac(calc_parameterised, params.overbuild)
+        (wind_nameplate, solar_nameplate, storage_hours_generated, cum_storage
+        ) = calc_parameterised(wind_frac, params.overbuild)
+        
+        max_drawdown, dd_start, dd_end = get_max_drawdown(cum_storage)
+        # We used to simulate a battery with a loop, but enumerating drawdowns makes a lot more sense.
+        # Unfortunately we lose the "curtailed" calculation.
+        half_drawdowns = get_drawdowns(cum_storage, max_drawdown / 2.0)
+        depletion = []
+        blackout_slots = 0
+        for _, s, e in get_drawdowns(cum_storage, params.storage_hours * slots_per_hour):
+            bs = s + np.argmax(cum_storage[s] - cum_storage[s:e] >= params.storage_hours * slots_per_hour)
+            depletion.append((timestamps[bs], timestamps[e]))
+            blackout_slots += e - bs
 
-        # No saturating arithmetic in numpy - have to loop.
-        clipped_drawdown = 0 # in storage-hours
-        curtailed_hours = 0
-        blackout_start = None
-        blackout_durations = []
-        blackout_starts = []
-        for i in range(data_hours):
-            storage_hours = storage_hours_generated[i]
-            clipped_drawdown += storage_hours
-            if storage_hours >= 0:
-                if blackout_start is not None:
-                    blackout_starts.append(i)
-                    blackout_durations.append(i - blackout_start)
-                    blackout_start = None
-                if clipped_drawdown > 0:
-                    curtailed_hours += clipped_drawdown
-                    clipped_drawdown = 0
-            else:
-                if clipped_drawdown < -params.storage_hours * slots_per_hour:
-                    if blackout_start is None:
-                        blackout_start = i
-                    clipped_drawdown = -params.storage_hours * slots_per_hour
+        simulate_drawdowns = False
+
+        if simulate_drawdowns:
+            # No saturating arithmetic in numpy - have to loop.
+            clipped_drawdown = 0 # in storage-hours
+            curtailed_hours = 0
+            blackout_start = None
+            blackout_durations = []
+            blackout_starts = []
+            for i in range(data_hours):
+                storage_hours = storage_hours_generated[i]
+                clipped_drawdown += storage_hours
+                if storage_hours >= 0:
+                    if blackout_start is not None:
+                        blackout_starts.append(i)
+                        blackout_durations.append(i - blackout_start)
+                        blackout_start = None
+                    if clipped_drawdown > 0:
+                        curtailed_hours += clipped_drawdown
+                        clipped_drawdown = 0
+                else:
+                    if clipped_drawdown < -params.storage_hours * slots_per_hour:
+                        if blackout_start is None:
+                            blackout_start = i
+                        clipped_drawdown = -params.storage_hours * slots_per_hour
+
 
         # Jarto wanted to see how much the existing capacity would be scaled up.
         final_wind_multiple = wind_nameplate[-1] / historical_maxes[WIND_COL, -1]
         final_solar_multiple = solar_nameplate[-1] / historical_maxes[SOLAR_COL, -1]
 
         params.print_parameters()
-        print(f"Minimum storage required to avoid all blackouts (hours): {max_drawdown/slots_per_hour:.1f}")
-        print(f"Duration of max drawdown (hours): {(dd_end-dd_start)/slots_per_hour:.1f} (period: {dd_start}-{dd_end})")
-        print(f"Overproduction (curtailment), percent: {100*curtailed_hours/data_hours:.1f}")
-        print(f"Blackouts: {len(blackout_durations)}")
-        print(f"Percentage of time in blackout: {100*sum(blackout_durations)/data_hours:.1f}")
-        print(f"Blackout (start, duration) (hours): {list(zip(blackout_starts, blackout_durations))}")
+        print(f"Minimum storage required to avoid all blackouts (storage-hours): {max_drawdown/slots_per_hour:.1f}")
+        print(f"Duration of max drawdown (hours): {(dd_end-dd_start)/slots_per_hour:.1f} (period: {timestamps[dd_start]}-{timestamps[dd_end]})")
+        print(f"Wind fraction ({'optimised' if params.optimise_wind_fraction else 'default'}): {wind_frac:.2f}")
+        print(f"Percentage of time in blackout: {100*blackout_slots/data_hours:.3f}")
+        print(f"Battery empty (blackouts): {depletion}")
+        print(f"Drawdowns of over {max_drawdown/2/slots_per_hour:.1f} storage-hours: {'; '.join(list(map(lambda d: f'{d[0]/slots_per_hour:.1f} ({timestamps[d[1]]} - {timestamps[d[2]]})', half_drawdowns)))}")
         print(f"Wind output scaled up by: {final_wind_multiple:.1f}")
         print(f"Solar output scaled up by: {final_solar_multiple:.1f}")
+        if simulate_drawdowns:
+            print(f"Sim - Overproduction (curtailment), percent: {100*curtailed_hours/data_hours:.1f}")
+            print(f"Sim - Blackouts: {len(blackout_starts)}")
+            print(f"Sim - Percentage of time in blackout: {100*sum(blackout_durations)/data_hours:.1f}")
+            print(f"Sim - Blackout (start, duration) (hours): {list(zip(blackout_starts, blackout_durations))}")
         print(f"Usable datapoints (percent): {100*data.shape[1]/basedata.shape[1]:.1f}")
         print("Historical contributions by source:")
         print("           Min CF   Avg CF    Min Contr.  Avg Contr.  Max Contr.")
@@ -273,22 +299,41 @@ def simulate(basedata, params, slots_per_hour, timestamps, quiet=False):
 
     return calc_parameterised
 
+# Minimise the maximum drawdown by adjusting the wind fraction
+def optimise_wind_frac(cpfun, overbuild):
+    wind_min = 0
+    wind_max = 1
+    while wind_min + 0.01 < wind_max:
+        wind_mid = (wind_min + wind_max) / 2
+        delta = (wind_max - wind_min) / 20
+        _, _, _, storage_l = cpfun(wind_mid - delta, overbuild)
+        l_drawdown, _, _ = get_max_drawdown(storage_l)
+        _, _, _, storage_r = cpfun(wind_mid + delta, overbuild)
+        r_drawdown, _, _ = get_max_drawdown(storage_r)
+        if l_drawdown < r_drawdown:
+            wind_max = wind_mid
+        else:
+            wind_min = wind_mid
+    return wind_min
+
+
 def get_max_drawdown(walk):
         dd_end = np.argmax(np.maximum.accumulate(walk) - walk)
-        dd_start = dd_end
-        if dd_end:
-            dd_start = np.argmax(walk[:dd_end])
+        dd_start = np.argmax(walk[:dd_end]) if dd_end else dd_end
         max_drawdown = walk[dd_start] - walk[dd_end]
         return max_drawdown, dd_start, dd_end
 
+# Get all non-overlapping drawdowns larger than n (from peak to trough).
 def get_drawdowns(walk, n):
+    if walk.shape[0] < 1:
+        return []
     max_drawdown, dd_start, dd_end = get_max_drawdown(walk)
-    drawdowns = [(max_drawdown, dd_start, dd_end)]
-    ls = (0, dd_start, *get_max_drawdown(walk[:dd_start]))
-    rs = (dd_end+1, walk.shape[-1], *get_max_drawdown(walk[dd_end + 1:]))
-    for i in range(n):
-        pass
-
+    if max_drawdown < n or dd_end < 1:
+        return []
+    ls = get_drawdowns(walk[:dd_start], n) if dd_start > 0 else []
+    ls.append((max_drawdown, dd_start, dd_end))
+    rs = get_drawdowns(walk[dd_end:], n) if dd_end+1 < walk.shape[0] else []
+    return ls + list(map(lambda m: (m[0], m[1]+dd_end, m[2]+dd_end), rs))
 
 
 def trailing_sma(vec, window):
@@ -506,7 +551,7 @@ def eia_csv_by_month(file):
     '''Simulate an EIA data file multiple times, starting at different dates'''
     dates, data, fname = eia_csv_loader(None)(f'{EIA_DATA_DIR}/{file}.csv')
     for i in range(0, len(dates) - 365*24, 30*24):
-        print(f"{file}: from {dates[i]}")
+        print(f"{file} (from {dates[i]})")
         simulate(data[:,i:], SimParams(f'{fname}: from {dates[i]}'), 1, dates[i:])
 
 # There is bad data in the gridwatch csv before Feb 2018 which completely screws things (you
@@ -527,7 +572,7 @@ def gridwatch_csv_by_month():
     '''Simulate the 2011-now gridwatch data multiple times, starting at different dates'''
     dates, data, fname = gridwatch_csv_loader(None)(f'gridwatch-data/gridwatch-2011-on.csv')
     for i in range(0, len(dates) - 365*24*12, 30*24*12):
-        print(f"Gridwatch: from {dates[i]}")
+        print(f"Gridwatch (from {dates[i]})")
         simulate(data[:,i:], SimParams(f'{fname}: from {dates[i]}'), 12, dates[i:])
 
 # simulate_eia_region('US48')
@@ -539,9 +584,12 @@ def gridwatch_csv_by_month():
 simulate_all_eia_regions()
 simulate_gridwatch_csv()
 
+# If you use these, set START_AT_YEAR to, eg, 2015
 # gridwatch_csv_by_month()
 # eia_csv_by_month('Region_TEX')
 # eia_csv_by_month('Region_US48')
+# eia_csv_by_month('Region_CENT')
+# eia_csv_by_month('Region_MIDA')
 # eia_csv_by_month('BPAT')
 # eia_csv_by_month('GRID')
 # eia_csv_by_month('NWMT')

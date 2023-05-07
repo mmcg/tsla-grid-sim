@@ -10,7 +10,7 @@ The tesla proposal is complex, but a core claim is that if you overbuild
 solar and wind by about 32%, keep existing nuclear and build out hydro,
 then you could get by with about 90 hours of energy storage and still
 maintain a reliable energy system.  They arrived at this particular
-prescription by optimising the overall cost of a grid buildout for
+prescription by optimising the overall cost of a buildout of
 some future fossil-free energy economy and demand profile,
 under the constraint that the energy storage should reliably handle
 the last 4 years of wind+solar capacity factor fluctuations
@@ -19,11 +19,11 @@ weather conditions).  The hourly EIA generation data is available
 [here](https://www.eia.gov/electricity/gridmonitor/).
 
 Here, we look at what amount of storage is plausible for the _current_
-electricity demand profile.  For this we take Tesla's generation mix
-(40:60 wind:solar), scale the total installed wind+solar to cover the
-deficit left from removing historical fossil fuel electricity generation,
-and simulate its performance against the observed historical wind and
-solar generation variability to see whether storage is ever depleted.
+electricity demand profile.  For this we size the total installed
+wind+solar to cover the peak supply deficit created by removing fossil fuel
+electricity generation, scale that up by 32%, and simulate its performance
+against the observed historical wind and solar capacity factors to calculate
+the maximum battery drawdowns.
 
 Before I start (or fuel) any arguments: Tesla considered a different
 energy economy - one we might build in the future - having very different
@@ -67,7 +67,7 @@ as egregious and we can produce somewhat plausible storage estimates.
 We look for that data in a file
 called `gridwatch-data/gridwatch-2018-on.csv`.
 Remember to start from February - there's an entry in January that
-claims that one of the interconnects can transmit $6*10^{36}$ MW.
+claims that one of the interconnects can transmit $6.4*10^{34}$ MW.
 
 There's also a function in the code to work out how much
 of the full gridwatch dataset is usable (you have to uncomment
@@ -84,6 +84,7 @@ states (as well as trade with Canada and Mexico).
 We'll describe the simulation [below](#Simulation), but
 for now you should know that:
 
+* We use the EIA data from 2019 onwards.
 * `NG: WND` means "net generation - wind" (these names come from the data
   files).  The non-fossil generation types are `WND`, `SUN`, `NUC` and `WAT` (the
   last includes both hydroelectric and pumped storage).
@@ -133,8 +134,8 @@ for now you should know that:
   somewhat optimistic.
 
 With Tesla's parameters (keep existing nuclear and hydro, overbuild
-renewable generation by 32%), we calculate that we need 8 hours of storage
-(and we see 57% curtailment).
+renewable generation by 32%), we calculate that we need under 6 hours
+of storage:
 ```
 Parameters:
     Data: eia-data/Region_US48.csv
@@ -148,104 +149,96 @@ Parameters:
     calculate_dcf: True
     default_wind_dcf: 0.352
     default_solar_dcf: 0.151
+    optimise_wind_fraction: True
     default_wind_fraction: 0.4
     keep_generators: [5, 6] - ['NG: NUC', 'NG: WAT']
-Minimum storage required to avoid all blackouts (hours): 7.7
-Duration of max drawdown (hours): 41.0 (period: 4722-4763)
-Overproduction (curtailment), percent: 57.1
-Blackouts: 0
-Percentage of time in blackout: 0.0
-Blackout (start, duration) (hours): []
-Wind output scaled up by: 6.8
-Solar output scaled up by: 40.4
+Minimum storage required to avoid all blackouts (storage-hours): 5.2
+Duration of max drawdown (hours): 46.0 (period: 2019-01-13 19:00:00-2019-01-15 17:00:00)
+Wind fraction (optimised): 0.84
+Percentage of time in blackout: 0.000
+Battery empty (blackouts): []
+Drawdowns of over 2.6 storage-hours: 5.2 (2019-01-13 19:00:00 - 2019-01-15 17:00:00); 3.1 (2019-08-03 12:00:00 - 2019-08-07 02:00:00); 3.4 (2020-01-19 22:00:00 - 2020-01-21 03:00:00); 3.1 (2020-01-29 11:00:00 - 2020-01-30 17:00:00); 2.7 (2021-01-08 23:00:00 - 2021-01-10 13:00:00); 3.0 (2021-02-17 00:00:00 - 2021-02-18 15:00:00); 5.1 (2021-06-28 01:00:00 - 2021-07-01 05:00:00)
+Wind output scaled up by: 13.9
+Solar output scaled up by: 10.6
 Usable datapoints (percent): 100.0
 Historical contributions by source:
            Min CF   Avg CF    Min Contr.  Avg Contr.  Max Contr.
-NG: WND     0.056    0.488       0.006       0.094       0.246
-NG: SUN     0.000    0.225       0.000       0.021       0.127
-NG: NUC     0.505    0.855       0.089       0.203       0.295
-NG: WAT     0.055    0.532       0.007       0.069       0.126
-NG: COL     0.237    0.570       0.096       0.218       0.353
-NG: NG      0.236    0.505       0.142       0.366       0.497
-NG: OIL     0.003    0.092       0.000       0.002       0.041
-NG: OTH     0.153    0.271       0.011       0.019       0.069
+NG: WND     0.065    0.499       0.009       0.098       0.246
+NG: SUN     0.000    0.234       0.000       0.022       0.127
+NG: NUC     0.506    0.865       0.124       0.205       0.295
+NG: WAT     0.164    0.536       0.025       0.069       0.126
+NG: COL     0.237    0.558       0.114       0.213       0.338
+NG: NG      0.246    0.508       0.229       0.371       0.497
+NG: OIL     0.003    0.095       0.000       0.002       0.041
+NG: OTH     0.153    0.253       0.013       0.019       0.069
 NG: UNK     0.000    0.000       0.000       0.000       0.000
 Discarded data points: []
 ```
 
 If we also replace nuclear and hydro with renewables, our storage
-needs rise to 13 hours - because (variable output) wind and solar
+needs rise to 8 hours - because (variable output) wind and solar
 have stepped in to cover for (relatively fixed output) nuclear and
 dispatch-on-demand hydro (which is, for our purposes, a huge self-recharging
 battery).  Here are the differences between this run and the prior one:
 ```
 Parameters:
     keep_generators: [] - []
-Minimum storage required to avoid all blackouts (hours): 12.7
-Duration of max drawdown (hours): 88.0 (period: 4698-4786)
-Overproduction (curtailment), percent: 51.9
+Minimum storage required to avoid all blackouts (storage-hours): 7.7
+Duration of max drawdown (hours): 52.0 (period: 2019-01-13 13:00:00-2019-01-15 17:00:00)
+Wind fraction (optimised): 0.85
+Drawdowns of over 3.9 storage-hours: 7.7 (2019-01-13 13:00:00 - 2019-01-15 17:00:00); 6.2 (2019-08-03 11:00:00 - 2019-08-07 02:00:00); 4.6 (2020-01-19 22:00:00 - 2020-01-21 04:00:00); 5.1 (2020-01-29 11:00:00 - 2020-01-31 05:00:00); 4.5 (2020-09-10 19:00:00 - 2020-09-14 02:00:00); 5.4 (2021-01-07 22:00:00 - 2021-01-10 14:00:00); 4.9 (2021-02-17 00:00:00 - 2021-02-19 15:00:00); 7.6 (2021-06-28 01:00:00 - 2021-07-01 13:00:00)
 ```
 
-Thus far, Tesla's storage number is looking plausible - our (admittedly
-optimistic) storage estimates are considerably lower than theirs.  There are, of
+Thus far, Tesla's storage number is looking pretty high - our (admittedly
+optimistic) estimates are considerably lower than theirs.  There are, of
 course, many differences between their scenario and ours.  One such
 difference is that in Tesla's paper, that 32% number (that we have treated
 as how much we should overbuild renewables above peak demand) actually referred
 to the amount of power that was _curtailed_ - power that had to be thrown away
 because storage was full.  Because they have at most a few days of storage, this
-implies that their generators must have been sized at about 32% above average
+implies that their renewables must have been sized at about 32% above average
 annual demand (not peak, and not even peak seasonal).
 
-If we tried to do the same thing today, we'd need at least 20 days of
-storage:
+If we do the same thing today, we'd need 60 hours of
+storage (and the optimal wind percentage drops by half):
 
 ```
 Parameters:
     capacity_planning_percentile: 0
-    overbuild: 0.32
     keep_generators: [5, 6] - ['NG: NUC', 'NG: WAT']
-Minimum storage required to avoid all blackouts (hours): 469.0
-Duration of max drawdown (hours): 1934.0 (period: 19-1953)
-Overproduction (curtailment), percent: 26.6
-Blackouts: 63
-Percentage of time in blackout: 1.8
-Blackout (start, duration) (hours): [(395, 4), (419, 16), ..., (1930, 11), (1954, 2)]
+Minimum storage required to avoid all blackouts (storage-hours): 58.2
+Duration of max drawdown (hours): 567.0 (period: 2019-01-09 22:00:00-2019-02-02 13:00:00)
+Wind fraction (optimised): 0.45
 ```
 
-Tesla's numbers might make sense if their hypothetical future
-energy demand is much less seasonal
-than the current one.  Which seems to be the case: in their paper, lots of new load
-is added (they roughly tripled electricity generation), and the majority of it is
+Another interesting difference is that Tesla's mix specifies
+only 4.9 hours of battery; the vast majority of the 90 hours
+was stored as hydrogen.  They also quoted an RTE for hydrogen
+storage of 95% - an efficiency much too high for (eg) a round
+trip through an electrolyser and a fuel cell, but pretty reasonable
+if you're only considering gas compression overhead and heat loss.
+So it would appear that the 4.9 hours of battery storage is
+supposed to cover all of their grid-scale electrical storage needs.
+
+This might make sense if Tesla's hypothetical future energy demand
+is much less seasonal than the current one.  Which appears to be the
+case: in their paper, lots of new load is added (they roughly tripled
+electricity generation), and the majority of it is either
 nonseasonal or has its own storage and can be deferred until there is excess
 supply (eg: hydrogen production, fuel production, industrial heat production).
-Relative to all of this new baseload, the seasonal parts for which they had data diminish
-in importance - expanded heat pump usage (which triples from today), car
-charging (and hence driving) seasonality, etc.  All of this newly created
-demand is stacked on top of today's demand profile - so today's contribution
-to seasonality drops by about two thirds.  Also, since they get to design
-how all of this new industry fits together with known wind and solar generation
-profiles, they can take advantage of every optimisation opportunity, and
-balance the mix of storage types to use up any gaps - optimality which doesn't
-tend to arise naturally unless there is an economic incentive to do so.  The
-result is that far less power is discarded overall because there is an optimal
-amount of external storage to fill, and also less overbuilding to do because
-the remaining supply deficits are smaller.  They also get to build out
-hydroelectric as they see fit (we use the historical figures).
+Relative to all of this new baseload, the seasonal parts diminish
+in importance - today's contribution to future seasonality drops by
+about two thirds.  Since they get to design how all of this
+new industry fits together with known wind and solar generation
+profiles, they can optimise the mix of demand and storage to soak up any
+extra generation capacity.  They also get to build out hydroelectric
+as they see fit (whereas we use the historical figures).
 
-Interestingly, Tesla's mix specifies only 4.9 hours of battery; the vast majority
-of the 90 hours was stored as hydrogen.  Given the observations above (8h
-for today's economy and reduced seasonality in their energy demand mix),
-it seems likely that their battery storage is sized to precisely
-cover their grid storage needs - i.e. that all of that hydrogen energy storage
-is intended to support industrial and chemical processes.  They
-also quoted an RTE for hydrogen storage of 95% - an efficiency
-much too high for (eg) a round trip through an electrolyser and a fuel
-cell, but pretty reasonable if you're only considering
-gas compression overhead and heat loss.
+So 4.9 hours is impressive, but plausible.
 
-If we overbuild by 0% (sizing renewables to the exact maximum demand)
-we need about 68 hours (3 days) of battery if you keep nuclear and hydro,
-or 82 hours without them.
+By the way, if we size renewables to the exact maximum demand (overbuild
+by 0%), we need about 18 hours of battery if you keep nuclear and hydro,
+or 29 hours without them.
 
 ## Reliability
 
@@ -259,21 +252,21 @@ Let's see what happens when we try that.
 
 ```
 Parameters:
-    Data: eia-data/Region_US48.csv
     capacity_planning_percentile: 0
     overbuild: 0
     keep_generators: [5, 6] - ['NG: NUC', 'NG: WAT']
-Minimum storage required to avoid all blackouts (hours): 2732.8
-Duration of max drawdown (hours): 15177.0 (period: 0-15177)
-Overproduction (curtailment), percent: 9.8
-Blackouts: 443
-Percentage of time in blackout: 15.4
-Blackout (start, duration) (hours): [(515, 300), (804, 284), ..., (39730, 3), (40283, 2)]
+Minimum storage required to avoid all blackouts (storage-hours): 1229.3
+Duration of max drawdown (hours): 15207.0 (period: 2019-05-28 23:00:00-2021-02-20 14:00:00)
+Wind fraction (optimised): 0.71
+Percentage of time in blackout: 51.217
+Battery empty (blackouts): [('2019-01-18 03:00:00', '2019-03-09 03:00:00'), ('2019-07-01 11:00:00', '2021-02-20 14:00:00'), ('2021-07-01 03:00:00', '2021-10-09 04:00:00'), ('2022-07-22 04:00:00', '2022-09-14 05:00:00')]
+Drawdowns of over 614.6 storage-hours: 1229.3 (2019-05-28 23:00:00 - 2021-02-20 14:00:00); 621.6 (2021-05-31 23:00:00 - 2021-10-09 04:00:00)
 ```
 
-So if you start with a 4 day battery, you are blacked out for 56 days
-per year.  Installing about 3.8 months of storage would have prevented any
-blackouts during the (historical) study period - roughly matching intuition.
+So if you start with a 4 day battery, it is running on empty 50%
+of the time.  Installing about 52 days of storage would have prevented
+any blackouts during the (historical) study period - roughly matching
+intuition.  The battery would almost never be fully charged.
 
 Obviously, sizing your renewables to match the average demand isn't sensible:
 on average you are depleting your battery at least as fast as you are charging it.
@@ -305,7 +298,7 @@ It calculates the amount of battery storage that would prevent
 any blackouts given the observed historical weather. This battery size does
 not (and cannot) guarantee 100% reliability for _future_ weather.  Future
 weather could be wildly different to anything in that data set.  The storm
-that knocked out Texas happened to fall into our five year study period -
+that knocked out Texas happened to fall into our four year study period -
 but they only see storms like that once every ten or twenty years, so we
 could just as easily have missed it.  We've never seen a nuclear winter.
 
@@ -324,31 +317,29 @@ you could use that weather model to simulate thousands of years of random (but
 realistic) weather conditions, and numerically estimate your system's
 reliability.  You could tweak your design until you hit your desired numbers.
 
-Our historical dataset is one such "realistic simulation", and covers about 5 years.
-If a simulation covers 5 years, you would expect to encounter about 50% of the
-weather events that occur once every 5 years (where an "event" might be, eg,
+Our historical dataset is one such "realistic simulation", and covers about 4 years.
+If a simulation covers 4 years, you would expect to encounter about 50% of the
+weather events that occur once every 4 years (where an "event" might be, eg,
 an unusually widespread lull in windspeed that last for a certain time).
-So in the following 5 year period, you'd expect that 25% of the 5-year
+So in the following 4 year period, you'd expect that 25% of the 4-year
 events that you encounter would be ones you haven't seen in your simulation.
 Of that 25%, there is a 50% chance that at least one of them has more
 severe effects on your system than any that you simulated.  So if you
 installed the minimum sized battery, you have at least a 12.5%
-chance of some sort of power outage somewhere in that 5 year period.
+chance of some sort of power outage somewhere in any 4 year period.
 
-That 12.5% includes just the failures expected to occur from 5 year weather
+That 12.5% includes just the failures expected to occur from 4 year weather
 events - we must actually integrate over the contributions of all of the
 other timescales to get a true estimate.  In any case, we don't end up
-with a very reliable system (it isn't easy to demonstrate on the US48,
-but we'll return to this when we look at the regional data).  I imagine
-that Tesla's carefully optimised 4.9 hours of battery storage might need
-similar adjustments.
+with a very reliable system (we'll return to this when we look at the
+regional data).  I imagine that Tesla's carefully optimised 4.9 hours
+of battery storage might need similar adjustments.
 
 The good news is that it's easy to build in a sizeable margin of safety:
 in the case of the lower 48, a relatively small (32%) overbuild in
-generation capacity resulted in an 8x drop in storage requirements (6x
-if you're also eliminating nuclear and hydro), or,
+generation capacity resulted in an 3.5x drop in storage requirements, or,
 [equivalently](https://en.wikipedia.org/wiki/Random_walk),
-a roughly 64x increase in the expected time between blackouts.
+a roughly 12x increase in the expected time between blackouts.
 Even better: reasonably realistic weather statistics gathered
 from long term data (or from weather models) are readily available.
 There are still tail events that can't be captured (or their probability
@@ -394,28 +385,31 @@ From the data, we:
   - We start with a weighted average of:
     - The maximum renewables demand ever seen prior to that hour (optionally with lookahead).
     - The rolling average demand from 6 months prior to 6 months after that hour.
-    - This lets us size capacity based on peak or levelised demand.
-  - We then size that up by the overbuilding percentage.
-  - We split that electricity demand between wind and solar
-    (40% wind by default), and scale each up to an installed
-    (nameplate) capacity using the levelised capacity factors
-    derived earlier.
+    - This lets us size required renewables based on peak or levelised demand
+      (or a combination of the two).
+  - We then size that power output up by the overbuilding percentage.
+* Calculate the wind:solar split
+  - By default, we use a binary search to find the split
+    giving the minimum required battery size
+    - If this is disabled, we use a default value (40% wind).
+  - We then scale each up to an installed (nameplate) capacity
+    using the average (levelised) capacity factors derived earlier.
 
-Once we have sized our installed renewables, we run it
-against the (calculated) per-hour historical capacity
-factors and demand figures, and track charge and discharge
-cycles of the specified-size battery.  The battery starts
-off full, and isn't allowed to fall below empty; an empty
-battery is assumed to represent a power outage.  The maximum
-drawdown (assuming an infinite battery) is also calculated, and
-is reported as the "minimum storage size required to avoid
-blackouts" headline figure.
+Once we have sized our installed renewables, we calculate
+the per-hour historical generation and demand figures, and
+track storage drawdowns.  The maximum drawdown (assuming an
+infinite battery) is calculated, and is reported as the
+"minimum storage size required to avoid blackouts" headline
+figure.  We also report the durations of any blackouts (for
+the specified size battery), as well as any peak-to-trough
+drawdowns which deplete storage by more than half of the
+maximum drawdown.
 
 Some of the regional data files have artifacts - for example,
 `Region_CENT` (Central) has some initial solar data, then
-several months where that data wasn't reported (perhaps their
+several months in 2018 where that data wasn't reported (perhaps their
 only solar farm went offline?) - which means the simulation
-will assume that the capacity factors were zero for
+will assume that the capacity factors were zero for those
 months.  Lots of the eastern and
 southeastern regions have very little solar installed (`MIDW`
 solar has an average solar capacity factor of 16% but
@@ -445,9 +439,9 @@ a particularly long period of low renewables generation
 near Christmas 2021 (data cleaning is an imperfect science)
 
 
-## Regional Storage Requirements
+## Regional Data
 
-We noted some problems with using the US48 data:
+We listed some problems with relying on the US48 data:
 
 * The lower 48 is huge (3M square miles): most weather systems are smaller than it,
   and it is heavily developed everywhere.  This causes averaging effects which
@@ -467,8 +461,9 @@ individually, should have larger storage requirements.  Since there
 are also interconnects into these regions which can be used to defray
 shortages, we will probably somewhat overestimate the storage required.
 
-Maps of the US grid regions and subregions are
-[here](https://www.epa.gov/green-power-markets/us-grid-regions).
+A map of the US grid regions and subregions is
+[here](https://www.epa.gov/green-power-markets/us-grid-regions);
+they're also spelled out in the [downloader](./download-eia-data.sh).
 In terms of our region data files:
 * WECC: NW, CAL, SW
 * MRO: CENT and a few states from MIDW
@@ -488,44 +483,47 @@ The US48 is administered as 3 regions:
 * Texas
 * Central and Eastern
 
-Here are the headline numbers (hours of storage) for 40:60 wind:solar
-and a 32% overbuild.  To revisit the "reliability" issue discussed
-earlier, we'll do this for several different starting points in the data:
+Here are the headline numbers (hours of storage) for an optimised wind:solar
+mix and a 32% overbuild.  To revisit the "reliability" issue discussed
+earlier (and to discuss 2018), we'll do this for several different starting
+points in the data:
 
 | Data: | 2018-2023 | 2019- | 2020- | 2021- |
 |-|-|-|-|-|
-| Region_CAL.csv | 10.3 | 10.3 | 4.7 | 5.0 |
-| Region_CENT.csv | 124.3 | 24.2 | 24.2 | 24.2 |
-| Region_MIDA.csv | 219.9 | 53.3 | 62.6 | 14.5 |
-| Region_MIDW.csv | 30.8 | 30.4 | 27.1 | 37.4 |
-| Region_NE.csv | 11.4 | 11.4 | 11.4 | 11.4 |
-| Region_NW.csv | 27.9 | 28.3 | 10.6 | 12.0 |
-| Region_SW.csv | 19.7 | 20.3 | 7.2 | 6.4 |
-| Region_TEX.csv | 36.0 | 36.2 | 38.4 | 43.6 |
-| Region_US48.csv | 7.7 | 9.9 | 4.5 | 4.6 |
-| Western (NW+CAL+SW) | 9.7 | 9.8 | 4.3 | 4.3 |
-| Central (CENT+MIDW) | 35.1 | 36.7 | 31.6 | 37.6 |
-| Texas (TEX) | 36.0 | 36.2 | 38.4 | 43.6 |
-| Eastern (NE+NY+MIDA+TEN+SE+FLA+CAR) | 356.0 | 9.3 | 8.1 | 6.4 |
-| Lower48 (US48) | 7.7 | 9.9 | 4.5 | 4.6 |
-| CentralAndEastern (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR) | 270.6 | 8.9 | 7.9 | 12.6 |
-| All (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR+TEX+NW+CAL+SW) | 7.7 | 9.9 | 4.5 | 4.6 |
-| gridwatch-data/gridwatch-2018-on.csv | 26.2 | 26.6 | 18.4 | 17.0 |
+| Region_CAL.csv | 10.2 | 10.3 | 4.5 | 4.8 |
+| Region_CENT.csv | 124.3 | 21.6 | 21.8 | 22.3 |
+| Region_MIDA.csv | 219.7 | 26.7 | 28.9 | 12.8 |
+| Region_MIDW.csv | 26.6 | 26.1 | 24.9 | 23.1 |
+| Region_NE.csv | 10.0 | 10.0 | 10.0 | 10.0 |
+| Region_NW.csv | 19.4 | 20.1 | 9.3 | 9.9 |
+| Region_SW.csv | 19.3 | 18.3 | 5.9 | 6.3 |
+| Region_TEX.csv | 23.9 | 25.6 | 27.1 | 30.3 |
+| Region_US48.csv | 6.0 | 5.2 | 3.2 | 3.4 |
+| Western (NW+CAL+SW) | 5.2 | 5.2 | 4.0 | 4.0 |
+| Central (CENT+MIDW) | 32.6 | 32.8 | 30.8 | 37.5 |
+| Texas (TEX) | 23.9 | 25.6 | 27.1 | 30.3 |
+| Eastern (NE+NY+MIDA+TEN+SE+FLA+CAR) | 175.2 | 9.3 | 8.0 | 5.5 |
+| Lower48 (US48) | 6.0 | 5.2 | 3.2 | 3.4 |
+| CentralAndEastern (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR) | 211.8 | 7.9 | 7.2 | 8.8 |
+| All (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR+TEX+NW+CAL+SW) | 6.0 | 5.2 | 3.2 | 3.4 |
+| gridwatch-data/gridwatch-2018-on.csv | 18.3 | 18.9 | 18.3 | 17.0 |
 
-I suspect there is some bad data in 2018 for certain Eastern regions - disaggregated
+There seems to be some bad data in 2018 for certain Eastern regions - disaggregated
 reporting only started in July 2018, and a number of the Balancing Authorities
 seem to have taken some time to sort out their IT issues.  To be fair,
 [2018](https://www.climate.gov/news-features/blogs/beyond-data/2018s-billion-dollar-disasters-context)
 and
 [2019](https://en.wikipedia.org/wiki/2018%E2%80%9319_North_American_winter)
-had some pretty wild weather as well - it's not clear how much
-2018 should be discounted.
+had some pretty wild weather as well - it's not clear whether
+2018 can be discounted completely.
 
 Note that `CENT` and `MIDA` (and gridwatch) were the only regions that
 had ranges discarded for lack of data; not coincidentally they
-have outlier estimated storage requirements.  Here are the date
-ranges that were dropped (as well as their durations - in hours
-for the US files and in 5 minute increments for GridWatch):
+have outlier estimated storage requirements. They each appear to have
+2-3 months of bad data at the start of the reporting period (see
+`eia_csv_by_month` in the code).  Here are the date ranges that
+were dropped (as well as their durations - in hours for the US files
+and in 5 minute increments for GridWatch):
 
 ```
 $ python3 tsla-grid-sim.py | grep -E ' Data:|points: \[\('
@@ -539,11 +537,11 @@ Discarded data points: [(3162, '2021-12-15 03:15:37', '2021-12-26 02:45:37')]
 
 Our filtering strategy discarded 11 days of UK data near
 Christmas 2021 - because the average capacity factors for
-wind and solar were both under 2% for that period and for
+wind or solar were under 2% for that period and for
 10 days before and after.  This probably isn't bad data -
 Christmas seems to be problematic for UK renewables.
 Disabling the filtering raises the UK storage estimate
-by 5 hours (to 30.9).
+to 25.4 hours.  Similarly, `MIDA` goes to 34.1 hours.
 
 We also gave up on 5 files - all in the US Eastern region (these
 had less than a year and a half of data left after filtering
@@ -559,75 +557,74 @@ Region_SE.csv: insufficient renewables datapoints
 Region_TEN.csv: insufficient renewables datapoints
 ```
 
+## Wind Percentages
 
+A "one size fits all" 40:60 wind:solar mix would cause
+inefficiencies for [many regions](https://www.eia.gov/todayinenergy/detail.php?id=39832).
+Here are some runs on the 2019-2023 data giving hours of storage
+assuming various wind:solar fractions (still with an overbuild of 32%).
+The optimal wind percentage and battery (used above by default) is on the right:
+
+| Wind fraction: | 0.0 | 0.2 | 0.4 | 0.6 | 0.8 | 1.0 | Minimum | Wind% |
+|-|-|-|-|-|-|-|-|-|
+| Region_CAL.csv | 12.0 | 10.6 | 10.3 | 11.2 | 19.4| 69.8 | 10.3  | 0.42 |
+| Region_CENT.csv | 33.8 | 27.0 | 24.2 | 21.7 | 30.8 | 43.2 | 21.6  | 0.58 |
+| Region_MIDA.csv | 117.4 | 80.0 | 53.3 | 35.7 | 27.1 | 29.4 | 26.7  | 0.97 |
+| Region_MIDW.csv | 196.4 | 39.5 | 30.4 | 28.6 | 33.7 | 85.3 | 26.1  | 0.50 |
+| Region_NE.csv | 33.4 | 15.1 | 11.4 | 10.3 | 13.0 | 35.8 | 10.0  | 0.66 |
+| Region_NW.csv | 127.2 | 35.7 | 28.3 | 24.4 | 20.9 | 41.3 | 20.1  | 0.85 |
+| Region_SW.csv | 23.1 | 19.0 | 20.3 | 33.2 | 72.2 | 119.8 | 18.3  | 0.26 |
+| Region_TEX.csv | 48.4 | 41.9 | 36.2 | 30.9 | 26.6 | 38.5 | 25.6  | 0.93 |
+| Region_US48.csv | 27.0 | 15.2 | 9.9 | 7.3 | 5.5 | 16.1 | 5.2  | 0.84 |
+| Western (NW+CAL+SW) | 31.6 | 16.8 | 9.8 | 5.3 | 5.5 | 27.1 | 5.2  | 0.74 |
+| Central (CENT+MIDW) | 67.1 | 38.6 | 36.7 | 34.8 | 33.0 | 35.7 | 32.8  | 0.83 |
+| Texas (TEX) | 48.4 | 41.9 | 36.2 | 30.9 | 26.6 | 38.5 | 25.6  | 0.93 |
+| Eastern (NE+NY+MIDA+TEN+SE+FLA+CAR) | 33.6 | 13.0 | 9.3 | 14.7 | 30.6 | 72.8 | 9.3  | 0.41 |
+| Lower48 (US48) | 27.0 | 15.2 | 9.9 | 7.3 | 5.5 | 16.1 | 5.2  | 0.84 |
+| CentralAndEastern (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR) | 74.2 | 17.8 | 8.9 | 8.1 | 12.3 | 29.1 | 7.9  | 0.50 |
+| All (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR+TEX+NW+CAL+SW) | 27.0 | 15.2 | 9.9 | 7.3 | 5.5 | 16.1 | 5.2  | 0.84 |
+| gridwatch-data/gridwatch-2018-on.csv | 100.6 | 32.7 | 26.6 | 21.3 | 22.8 | 43.6 | 18.9  | 0.72 |
+
+The big four regions seem to want 70-90% wind
+with the exception of Eastern, which does better
+with 60% solar.  However, the capacity factor
+for solar in Eastern is only around 8% (compared
+to 35% for wind), so installing 60% (levelised) solar
+contribution would represent a large overbuild in
+nameplate solar capacity - it is unlikely to be the
+most cost-effective build for the region (I assume
+this requires the lowest battery size because
+solar capacity factors are much less variable when it is always
+[overcast](https://www.currentresults.com/Weather-Extremes/US/cloudiest-cities.php)).
+We don't have good solar data for the eastern region
+anyway, and there is almost none for Central: the
+data we have indicates that solar contributes
+about 0.25% of the generation mix there.
 
 ## An Optimiser?
 
-The numbers so far seem pretty useful
-for understanding the storage problem.
-But the "one size fits all" 40:60 wind:solar mix causes
-inefficiencies for [many regions](https://www.eia.gov/todayinenergy/detail.php?id=39832).
-Here are some runs on the 2019-2023 data giving hours of storage
-assuming various wind:solar fractions (still with an overbuild of 32%):
-
-| Wind fraction: | 0.0 | 0.2 | 0.4 | 0.6 | 0.8 | 1.0 |
-|-|-|-|-|-|-|-|
-| Region_CAL.csv | 12.0 | 10.6 | 10.3 | 11.2 | 19.4| 69.8 |
-| Region_CENT.csv | 33.8 | 27.0 | 24.2 | 21.7 | 30.8 | 43.2 |
-| Region_MIDA.csv | 117.4 | 80.0 | 53.3 | 35.7 | 27.1 | 29.4 |
-| Region_MIDW.csv | 196.4 | 39.5 | 30.4 | 28.6 | 33.7 | 85.3 |
-| Region_NE.csv | 33.4 | 15.1 | 11.4 | 10.3 | 13.0 | 35.8 |
-| Region_NW.csv | 127.2 | 35.7 | 28.3 | 24.4 | 20.9 | 41.3 |
-| Region_SW.csv | 23.1 | 19.0 | 20.3 | 33.2 | 72.2 | 119.8 |
-| Region_TEX.csv | 48.4 | 41.9 | 36.2 | 30.9 | 26.6 | 38.5 |
-| Region_US48.csv | 27.0 | 15.2 | 9.9 | 7.3 | 5.5 | 16.1 |
-| Western (NW+CAL+SW) | 31.6 | 16.8 | 9.8 | 5.3 | 5.5 | 27.1 |
-| Central (CENT+MIDW) | 67.1 | 38.6 | 36.7 | 34.8 | 33.0 | 35.7 |
-| Texas (TEX) | 48.4 | 41.9 | 36.2 | 30.9 | 26.6 | 38.5 |
-| Eastern (NE+NY+MIDA+TEN+SE+FLA+CAR) | 33.6 | 13.0 | 9.3 | 14.7 | 30.6 | 72.8 |
-| Lower48 (US48) | 27.0 | 15.2 | 9.9 | 7.3 | 5.5 | 16.1 |
-| CentralAndEastern (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR) | 74.2 | 17.8 | 8.9 | 8.1 | 12.3 | 29.1 |
-| All (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR+TEX+NW+CAL+SW) | 27.0 | 15.2 | 9.9 | 7.3 | 5.5 | 16.1 |
-| gridwatch-data/gridwatch-2018-on.csv | 100.6 | 32.7 | 26.6 | 21.3 | 22.8 | 43.6 |
-
-So the US48 seems to do best overall with 80% wind, and
-the big four regions seem to want 60-80% wind
-with the exception of Eastern, which does better
-with 60% solar.  Note that the capacity factor
-for solar in Eastern is only around 8% (compared
-to 35% for wind), so 60% (levelised) solar would
-represent a large overbuild in nameplate solar
-capacity - it is unlikely to be the most cost-effective
-build for the region (I assume because it is usually
-[overcast](https://www.currentresults.com/Weather-Extremes/US/cloudiest-cities.php)
-near the great lakes).  We don't
-seem to have good solar data for the eastern region
-anyway, and there is almost none for Central (the
-data we have indicates that solar contributes
-about 0.25% of the generation mix there, though
-there may be some underreporting).
-
-Similarly, the 32% overbuild was Tesla's number, for
-their own energy economy (and we use it wrongly anyway).
-There is no reason to think it is the optimal
+The 32% overbuild was also Tesla's number, for their own
+energy economy (and we use it wrongly here anyway).
+Like their 40:60 wind:solar, there is no reason to think
+that 32% is the optimal
 figure for today's energy mix (though it seems to produce
 somewhat reasonable results).  We briefly looked at this
 for the lower 48, so I won't include a table here.
 
-To come up with more realistic numbers, we'd need an optimiser
-that chooses the final installed wind:solar mix, the
-overbuild percentage and the battery size, minimising
-costs.  The inputs are the price per installed MW of
-solar and wind (and per MWh, if you care about depreciation)
-and the price per MWh of storage; you
-might also target a blackout percentage (presumably
-defaulting to 0% - although we already discussed the
-reliability of storage size estimates derived from
+To come up with better numbers, we'd need an optimiser
+that chooses the overbuild percentage, the battery
+size, and the final installed wind:solar mix (which
+may be different to the one we find by minimising
+the battery size).  The inputs are the
+price per installed MW of solar and wind (and per MWh,
+if you care about depreciation) and the price per MWh
+of storage; you might also target a blackout percentage
+(presumably defaulting to 0% - although we already discussed
+the reliability of storage size estimates derived from
 historical data).
 
-But our data probably isn't good enough to draw any
-firm conclusions from such an exercise, and I already
-got what I came for.
+But our data probably isn't good enough to do anything
+worthwhile there, and I already got what I came for.
 
 ## End Notes
 
@@ -689,5 +686,5 @@ points (for or against renewables, nuclear, CCS, ...).
 I wrote the code because all the competing camps and lobby
 groups spout so much bullshit that it has become impossible to
 know who's lying about what.  It is then amplified by idiots.
-If you're quoting these numbers, you are probably one of them.
+If you're parroting these numbers, you are probably one of them.
 

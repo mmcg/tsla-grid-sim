@@ -22,4 +22,4 @@ The python code uses numpy (`python3 -m pip install numpy`).
 
 ## License
 
-See [tsla-grid.md](./tsla-grid.md).
+See [tsla-grid.md](./tsla-grid.md#License).
