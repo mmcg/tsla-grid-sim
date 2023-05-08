@@ -77,7 +77,7 @@ class SimParams(ParameterBase):
         # sensible non-default) - or add new ones.
         return {
             # 'cf_filter_duration': 24 * 7 * 16,
-            # 'min_historical_cf': 0, # don't eliminate any historical ranges
+            # 'min_historical_cf': 0, # don't filter any historical low-renewables ranges (useful for GridWatch)
             # 'storage_hours': 10,
             # 'isolate_region': True,
             # 'capacity_planning_lookahead': 0, # No lookahead
@@ -87,8 +87,8 @@ class SimParams(ParameterBase):
             # 'calculate_dcf': False,
             # 'wind_dcf': TSLA_WIND_DCF,
             # 'solar_dcf': TSLA_SOLAR_DCF,
+            # 'optimise_wind_fraction': False,
             # 'default_wind_fraction': 0.75,
-            # 'optimise_wind_fraction': False
 
             ## Eliminate nuclear and hydro as well:
             # 'keep_generators': [],
@@ -377,7 +377,7 @@ eia_timestamp = 'UTC time'
 # the interconnects section, so I have assumed they represent imports (I have no
 # docs).
 gridwatch_interconnects = [
-    'french_ict', 'dutch_ict', 'irish_ict', 'ew_ict', 'nemo', 'nsl', 'north_south',
+    'french_ict', 'dutch_ict', 'irish_ict', 'ew_ict', 'nemo', 'nsl',
     'other', 'north_south', 'scotland_england', 'ifa2', 'intelec_ict',
 ] 
 gridwatch_col_map = {
@@ -459,6 +459,8 @@ def gridwatch_csv_loader(start_year=None):
         return dates, data, fname
     return load_gridwatch_csv
 
+# Alignment only matters for 2018 EIA data (reporting from different timezones
+# started at different GMT times on Jul 1 2018).
 def align_csv_dates(csvs):
     '''Sequence-align the timestamps across all CSVs, then assign indices to them.
     Returns the set of csvs with each date_list replaced by a date_indices array,
@@ -581,10 +583,10 @@ def gridwatch_csv_by_month():
 # simulate_eia_region('NW')
 # simulate_eia_region('CENT')
 
-simulate_all_eia_regions()
+# simulate_all_eia_regions()
 simulate_gridwatch_csv()
 
-# If you use these, set START_AT_YEAR to, eg, 2015
+# To work out where the data anomalies end in a file
 # gridwatch_csv_by_month()
 # eia_csv_by_month('Region_TEX')
 # eia_csv_by_month('Region_US48')
@@ -594,5 +596,5 @@ simulate_gridwatch_csv()
 # eia_csv_by_month('GRID')
 # eia_csv_by_month('NWMT')
 
-# Simulate individual BA files as well as regions.
+# Simulate the individual BA files as well as regions.
 # simulate_all_eia_files()

@@ -434,10 +434,12 @@ error in the interchange data (the last of which is in
 row `id: 694477, timestamp: 2018-01-08 14:10:47`).
 Downloads should start from Feb 2018 (there are
 many artifacts after that, but they are not fatal).
-The date-range dropping also removes the center of
-a particularly long period of low renewables generation
-near Christmas 2021 (data cleaning is an imperfect science)
-
+The date-range dropping also removes 11 days at the
+center of a particularly long period of low renewables
+generation near Christmas 2021, which loweres the estimated
+minimum battery size by about 5 hours (data cleaning is an
+imperfect science).  I have disabled that filtering
+for GridWatch in the sections below.
 
 ## Regional Data
 
@@ -484,7 +486,7 @@ The US48 is administered as 3 regions:
 * Central and Eastern
 
 Here are the headline numbers (hours of storage) for an optimised wind:solar
-mix and a 32% overbuild.  To revisit the "reliability" issue discussed
+mix and a 32% overbuild.  To illustrate the "reliability" issue discussed
 earlier (and to discuss 2018), we'll do this for several different starting
 points in the data:
 
@@ -506,7 +508,7 @@ points in the data:
 | Lower48 (US48) | 6.0 | 5.2 | 3.2 | 3.4 |
 | CentralAndEastern (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR) | 211.8 | 7.9 | 7.2 | 8.8 |
 | All (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR+TEX+NW+CAL+SW) | 6.0 | 5.2 | 3.2 | 3.4 |
-| gridwatch-data/gridwatch-2018-on.csv | 18.3 | 18.9 | 18.3 | 17.0 |
+| gridwatch-data/gridwatch-2018-on.csv | 29.1 | 29.7 | 33.9 | 32.8 |
 
 There seems to be some bad data in 2018 for certain Eastern regions - disaggregated
 reporting only started in July 2018, and a number of the Balancing Authorities
@@ -517,13 +519,13 @@ and
 had some pretty wild weather as well - it's not clear whether
 2018 can be discounted completely.
 
-Note that `CENT` and `MIDA` (and gridwatch) were the only regions that
-had ranges discarded for lack of data; not coincidentally they
-have outlier estimated storage requirements. They each appear to have
-2-3 months of bad data at the start of the reporting period (see
-`eia_csv_by_month` in the code).  Here are the date ranges that
-were dropped (as well as their durations - in hours for the US files
-and in 5 minute increments for GridWatch):
+Note that `CENT` and `MIDA` (and, originally, gridwatch) were the
+only regions that had ranges discarded for lack of data; not
+coincidentally they have outlier estimated storage requirements.
+They each appear to have 2-3 months of bad data at the start of
+the reporting period (see `eia_csv_by_month` in the code).  Here
+are the date ranges that were dropped (as well as their durations
+in hours):
 
 ```
 $ python3 tsla-grid-sim.py | grep -E ' Data:|points: \[\('
@@ -531,21 +533,20 @@ $ python3 tsla-grid-sim.py | grep -E ' Data:|points: \[\('
 Discarded data points: [(1218, '2018-07-01 06:00:00', '2018-08-21 00:00:00')]
     Data: Region_MIDA.csv
 Discarded data points: [(251, '2018-07-01 05:00:00', '2018-07-11 16:00:00'), (1260, '2018-07-19 18:00:00', '2018-09-10 06:00:00'), (286, '2020-01-12 04:00:00', '2020-01-24 02:00:00')]
-    Data: gridwatch-data/gridwatch-2018-on.csv
-Discarded data points: [(3162, '2021-12-15 03:15:37', '2021-12-26 02:45:37')]
 ```
 
-Our filtering strategy discarded 11 days of UK data near
-Christmas 2021 - because the average capacity factors for
-wind or solar were under 2% for that period and for
+Our filtering strategy originally discarded 11 days of UK
+data near Christmas 2021 - because the average capacity factors for
+either wind or solar were under 2% for that period and for
 10 days before and after.  This probably isn't bad data -
 Christmas seems to be problematic for UK renewables.
-Disabling the filtering raises the UK storage estimate
-to 25.4 hours.  Similarly, `MIDA` goes to 34.1 hours.
+Disabling the filtering raised the UK storage estimate
+to 30 hours (from 25h with filtering).  Similarly,
+`MIDA` goes to 34.1 hours for 2019+ data.
 
 We also gave up on 5 files - all in the US Eastern region (these
 had less than a year and a half of data left after filtering
-unusable rows).  Notice that `Eastern` and `CentralAndEastern`
+rows without data).  Notice that `Eastern` and `CentralAndEastern`
 also had outlier estimates for 2018:
 
 ```
@@ -583,7 +584,7 @@ The optimal wind percentage and battery (used above by default) is on the right:
 | Lower48 (US48) | 27.0 | 15.2 | 9.9 | 7.3 | 5.5 | 16.1 | 5.2  | 0.84 |
 | CentralAndEastern (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR) | 74.2 | 17.8 | 8.9 | 8.1 | 12.3 | 29.1 | 7.9  | 0.50 |
 | All (CENT+MIDW+NE+NY+MIDA+TEN+SE+FLA+CAR+TEX+NW+CAL+SW) | 27.0 | 15.2 | 9.9 | 7.3 | 5.5 | 16.1 | 5.2  | 0.84 |
-| gridwatch-data/gridwatch-2018-on.csv | 100.6 | 32.7 | 26.6 | 21.3 | 22.8 | 43.6 | 18.9  | 0.72 |
+| gridwatch-data/gridwatch-2018-on.csv |  218.9 | 53.6 | 40.3 | 34.1 | 30.8 | 50.8 | 29.7 | 0.88 |
 
 The big four regions seem to want 70-90% wind
 with the exception of Eastern, which does better
@@ -600,6 +601,11 @@ We don't have good solar data for the eastern region
 anyway, and there is almost none for Central: the
 data we have indicates that solar contributes
 about 0.25% of the generation mix there.
+
+Note that with filtering turned on, the optimal gridwatch
+wind fraction was 71% - it would appear that the "low renewables"
+period in 2021 was dues to a lack of solar (rather than wind).
+
 
 ## An Optimiser?
 
