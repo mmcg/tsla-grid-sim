@@ -583,7 +583,7 @@ def gridwatch_csv_by_month():
 # simulate_eia_region('NW')
 # simulate_eia_region('CENT')
 
-# simulate_all_eia_regions()
+simulate_all_eia_regions()
 simulate_gridwatch_csv()
 
 # To work out where the data anomalies end in a file
