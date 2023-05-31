@@ -6,8 +6,8 @@ DIR='eia-data'
 
 # By default we grab just the US48 file (-r for regions, -a for all)
 GREP='Region_US48'
-[ "$1" -eq "-a" ] && GREP='.'
-[ "$1" -eq "-r" ] && GREP='/Region_'
+[ "$1" = "-a" ] && GREP='.'
+[ "$1" = "-r" ] && GREP='/Region_'
 
 # I couldn't be bothered writing a web scraper - so this is a cut-n-paste of the
 # balancing authority/region file table from the "download" link on this page:

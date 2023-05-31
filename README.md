@@ -4,7 +4,7 @@ This uses EIA historical power generation data to simulate
 the grid-scale storage required to avoid power outages on
 a renewables-powered grid.
 
-Description in [tsla-grid.md](./tsla-grid.md).
+Writeup in [tsla-grid.md](./tsla-grid.md).
 
 ## Usage
 

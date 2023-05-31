@@ -621,13 +621,17 @@ To come up with better numbers, we'd need an optimiser
 that chooses the overbuild percentage, the battery
 size, and the final installed wind:solar mix (which
 may be different to the one we find by minimising
-the battery size).  The inputs are the
+the battery size).
+
+The inputs are the
 price per installed MW of solar and wind (and per MWh,
 if you care about depreciation) and the price per MWh
 of storage; you might also target a blackout percentage
 (presumably defaulting to 0% - although we already discussed
 the reliability of storage size estimates derived from
 historical data).
+A cost-based analysis would also be able to consider
+beefing up the regional interconnects.
 
 But our data probably isn't good enough to do anything
 worthwhile there, and I already got what I came for.
