@@ -330,10 +330,12 @@ chance of some sort of power outage somewhere in any 4 year period.
 
 That 12.5% includes just the failures expected to occur from 4 year weather
 events - we must actually integrate over the contributions of all of the
-other timescales to get a true estimate.  In any case, we don't end up
-with a very reliable system (we'll return to this when we look at the
-regional data).  I imagine that Tesla's carefully optimised 4.9 hours
-of battery storage might need similar adjustments.
+other timescales to get a true estimate - which, by the same reasoning as
+above, must sum to a 50% chance of encountering an event extreme enough
+to cause an outage.  In any case, we don't end up with a very reliable
+system (we'll return to this when we look at the regional data).  I imagine
+that Tesla's carefully optimised 4.9 hours of battery storage might need
+similar adjustments.
 
 The good news is that it's easy to build in a sizeable margin of safety:
 in the case of the lower 48, a relatively small (32%) overbuild in
@@ -349,7 +351,8 @@ By the way, I calculated (from Tesla's model results on page 20)
 that renewables curtailment comes out to about 28% - so perhaps
 their "15% margin of safety" came from bumping that up to 32%.
 In our terms, that's an overbuild of a few additional percent
-over the bare minimum system analysed above.
+over the bare minimum system analysed above (so a small increase
+in reliability).
 
 ## Simulation
 
